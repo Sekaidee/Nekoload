@@ -1,0 +1,43 @@
+{
+  "name": "nekoload",
+  "version": "1.0.0",
+  "description": "By Sekaide Studio",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+  "appId": "SekaideStudio.Nekoload",
+  "productName": "Nekoload",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "preload-settings.js",
+    "src/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "./Tools",
+      "to": "tools",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "src/renderer/SIcon.ico"
+  }
+}
+}

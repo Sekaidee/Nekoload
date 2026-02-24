@@ -1,0 +1,8 @@
+Tools/
+node_modules/
+dist/
+build/
+*.exe
+*.zip
+*.log
+.env

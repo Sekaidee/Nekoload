@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; script-src 'self'; font-src 'self' data: https://fonts.gstatic.com;">
+  <title>Nekoload Settings</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="settings.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app settings-app">
+    <header class="titlebar" data-electron-drag>
+      <span class="titlebar-title">Settings</span>
+      <div class="titlebar-actions">
+        <button type="button" class="titlebar-btn titlebar-btn-close" id="settingsClose" title="Close">×</button>
+      </div>
+    </header>
+
+    <div class="settings-body">
+      <aside class="settings-sidebar">
+        <nav class="settings-nav">
+          <button type="button" class="settings-nav-item active" data-tab="general">General</button>
+        </nav>
+      </aside>
+      <main class="settings-content">
+        <div class="settings-tab" id="tab-general">
+          <h1 class="settings-tab-title">General</h1>
+          <div class="settings-group">
+            <label class="settings-label" for="downloadPathInput">Download path</label>
+            <div class="settings-path-row">
+              <input
+                type="text"
+                id="downloadPathInput"
+                class="settings-path-input"
+                readonly
+                placeholder="Select a folder…"
+              />
+              <button type="button" id="btnSelectFolder" class="settings-select-btn">Select</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>
