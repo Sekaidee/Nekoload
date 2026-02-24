@@ -11,7 +11,7 @@ A clean, minimal YouTube downloader for Windows (Electron + yt-dlp + ffmpeg).
 ## Setup
 
 ```bash
-cd nekoload
+cd Nekoload
 npm install
 ```
 
@@ -39,7 +39,7 @@ Output is in the `dist` folder. The `Tools` folder (yt-dlp, ffmpeg) is included 
 ## Project structure
 
 ```
-kiru/
+Nekoload/
 ├── main.js           # Electron main process (window, IPC, yt-dlp spawn)
 ├── preload.js        # Context bridge (secure API for renderer)
 ├── package.json
@@ -50,17 +50,3 @@ kiru/
 │   └── renderer.js
 └── README.md
 ```
-
-## Architecture
-
-- **Main process**: Creates window, runs yt-dlp (and metadata via `--dump-json`), parses progress from stdout/stderr, exposes IPC handlers for file open/folder/rename/delete.
-- **Preload**: Exposes a minimal `window.kiru` API with invoke/send and event listeners; context isolation enabled.
-- **Renderer**: UI only; no Node, no direct IPC; uses `kiru.startDownload`, `kiru.onDownloadStarted` / `onDownloadProgress` / `onDownloadDone`, and file actions.
-
-Progress is parsed from yt-dlp output lines like:
-
-```
-[download]  12.5% of 10.00MiB at 1.50MiB/s ETA 00:05
-```
-
-using the regex: `\[download\]\s+(\d+(?:\.\d+)?)%`.
