@@ -11,7 +11,7 @@ A clean, minimal YouTube downloader for Windows (Electron + yt-dlp + ffmpeg).
 ## Setup
 
 ```bash
-cd kiru
+cd nekoload
 npm install
 ```
 
