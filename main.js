@@ -9,8 +9,12 @@ const http = require('http');
 
 let mainWindow = null;
 let settingsWindow = null;
+let currentTabUrl = null;
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'nekoload-config.json');
+const DEFAULT_THEME = 'cyan';
+const VALID_THEMES = ['cyan', 'purple'];
+const DEFAULT_OPACITY = 0.8;
 
 function getDefaultDownloadPath() {
   if (app.isPackaged) return path.dirname(process.execPath);
@@ -21,10 +25,17 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const data = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-      if (data.downloadPath && fs.existsSync(data.downloadPath)) return data;
+      const downloadPath = data.downloadPath && fs.existsSync(data.downloadPath)
+        ? data.downloadPath
+        : getDefaultDownloadPath();
+      const theme = VALID_THEMES.includes(data.theme) ? data.theme : DEFAULT_THEME;
+      const backgroundOpacity = typeof data.backgroundOpacity === 'number' && data.backgroundOpacity >= 0.2 && data.backgroundOpacity <= 1
+        ? data.backgroundOpacity
+        : DEFAULT_OPACITY;
+      return { downloadPath, theme, backgroundOpacity };
     }
   } catch (_) {}
-  return { downloadPath: getDefaultDownloadPath() };
+  return { downloadPath: getDefaultDownloadPath(), theme: DEFAULT_THEME, backgroundOpacity: DEFAULT_OPACITY };
 }
 
 function saveConfig(config) {
@@ -35,6 +46,31 @@ function saveConfig(config) {
 
 function getDownloadPath() {
   return loadConfig().downloadPath;
+}
+
+function getTheme() {
+  return loadConfig().theme;
+}
+
+function getBackgroundOpacity() {
+  return loadConfig().backgroundOpacity;
+}
+
+function setBackgroundOpacity(opacity) {
+  const value = typeof opacity === 'number' ? opacity : parseFloat(opacity);
+  if (Number.isNaN(value) || value < 0.2 || value > 1) return false;
+  const config = loadConfig();
+  config.backgroundOpacity = value;
+  saveConfig(config);
+  return true;
+}
+
+function setTheme(theme) {
+  if (!VALID_THEMES.includes(theme)) return false;
+  const config = loadConfig();
+  config.theme = theme;
+  saveConfig(config);
+  return true;
 }
 
 function getToolsPath() {
@@ -118,7 +154,17 @@ function createMainWindow() {
     },
   });
   mainWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send('app:theme', getTheme());
+    mainWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
+    if (currentTabUrl) {
+      mainWindow.webContents.send('new-url', currentTabUrl);
+    }
+  });
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -209,10 +255,25 @@ async function showDownloadNotification(success, body, thumbnailUrl, downloadId,
 function extractYouTubeVideoId(url) {
   try {
     const u = new URL(url);
-    if (u.hostname === 'youtu.be') return u.pathname.slice(1);
-    if (u.searchParams.has('v')) return u.searchParams.get('v');
+    const hostname = u.hostname.toLowerCase();
+    if (hostname === 'youtu.be' || hostname === 'www.youtu.be') {
+      return u.pathname.slice(1);
+    }
+    if (hostname.includes('youtube.com') || hostname === 'youtube-nocookie.com') {
+      if (u.searchParams.has('v')) {
+        return u.searchParams.get('v');
+      }
+      const pathParts = u.pathname.split('/').filter(Boolean);
+      if (pathParts[0] === 'shorts' && pathParts[1]) {
+        return pathParts[1];
+      }
+    }
   } catch (_) {}
   return '';
+}
+
+function isYouTubeUrl(url) {
+  return Boolean(extractYouTubeVideoId(url));
 }
 
 function fetchMetadata(ytDlpPath, url) {
@@ -241,20 +302,35 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const ytDlpPath = getYtDlpPath();
   const videoId = extractYouTubeVideoId(url);
+  const subDirName = type === 'audio' ? 'Audios' : 'Videos';
+  const outDir = path.join(downloadPath, subDirName);
+  try {
+    fs.mkdirSync(outDir, { recursive: true });
+  } catch (e) {
+    console.warn('[Nekoload main] mkdir outDir', e.message);
+  }
+
+  mainWindow?.webContents.send('download:started', {
+    id,
+    title: 'Loading…',
+    thumbnail: '',
+    videoId,
+    type,
+  });
 
   const meta = await fetchMetadata(ytDlpPath, url);
   if (meta.thumbnail) downloadThumbnails.set(id, meta.thumbnail);
 
   const safeTitle = sanitizeFilename(meta.title || videoId || 'download');
-  console.log('[Nekoload main] download:start', { originalTitle: meta.title, safeTitle, videoId });
-  mainWindow?.webContents.send('download:started', {
+  console.log('[Nekoload main] download:start', { originalTitle: meta.title, safeTitle, videoId, outDir });
+  mainWindow?.webContents.send('download:metadata', {
     id,
     title: safeTitle,
-    thumbnail: meta.thumbnail,
+    thumbnail: meta.thumbnail || '',
     videoId,
-    type,
   });
-  const outputTemplate = path.join(downloadPath, safeTitle + '.%(ext)s').replace(/\\/g, '/');
+
+  const outputTemplate = path.join(outDir, safeTitle + '.%(ext)s').replace(/\\/g, '/');
   const args = [
     '--newline',
     '--no-playlist',
@@ -272,18 +348,23 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
   if (type === 'audio') {
     args.push('-f', 'bestaudio*', '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
-    // Video = video + audio merged. Requires ffmpeg.
+    // Video + audio merged; subtitles embedded when available (requires ffmpeg).
     args.push(
       '-f',
       'bestvideo*[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
       '--merge-output-format',
-      'mp4'
+      'mp4',
+      '--write-subs',
+      '--write-auto-subs',
+      '--sub-langs',
+      'en.*,en',
+      '--embed-subs'
     );
   }
   args.push(url);
 
   const child = spawn(ytDlpPath, args, {
-    cwd: downloadPath,
+    cwd: outDir,
     env: getSpawnEnv(),
     shell: false,
   });
@@ -367,7 +448,7 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
       let filePath = null;
       const ext = type === 'audio' ? '.mp3' : '.mp4';
       const expectedFilename = safeTitle + ext;
-      const expectedPath = path.join(downloadPath, expectedFilename);
+      const expectedPath = path.join(outDir, expectedFilename);
       
       if (success) {
         if (fs.existsSync(expectedPath)) {
@@ -375,7 +456,7 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
           lastFilename = expectedFilename;
           console.log('[Nekoload main] download:done – using expected filename', { expectedFilename });
         } else if (lastFilename && lastFilename.length > 0 && lastFilename !== '-' && lastFilename !== '-.mp4' && lastFilename !== '-.mp3') {
-          const parsedPath = path.join(downloadPath, lastFilename);
+          const parsedPath = path.join(outDir, lastFilename);
           if (fs.existsSync(parsedPath)) {
             filePath = parsedPath;
             console.log('[Nekoload main] download:done – using parsed filename', { lastFilename });
@@ -507,7 +588,41 @@ ipcMain.handle('file:delete', (_, filePath) => {
    SETTINGS
 ---------------------------------------------------------- */
 
+ipcMain.handle('app:getTheme', () => getTheme());
+ipcMain.handle('app:setTheme', (_, theme) => {
+  const ok = setTheme(theme);
+  if (!ok) return { ok: false };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:theme', theme);
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('app:theme', theme);
+  }
+  return { ok: true };
+});
+ipcMain.handle('app:getBackgroundOpacity', () => getBackgroundOpacity());
+ipcMain.handle('app:setBackgroundOpacity', (_, opacity) => {
+  const ok = setBackgroundOpacity(opacity);
+  if (!ok) return { ok: false };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
+  }
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
+  }
+  return { ok: true };
+});
+
 ipcMain.handle('settings:getDownloadPath', () => getDownloadPath());
+ipcMain.handle('settings:getTheme', () => getTheme());
+ipcMain.handle('settings:getBackgroundOpacity', () => getBackgroundOpacity());
+ipcMain.handle('settings:setBackgroundOpacity', (_, opacity) => {
+  const ok = setBackgroundOpacity(opacity);
+  if (ok && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
+  }
+  return { ok };
+});
 
 ipcMain.handle('settings:setDownloadPath', (_, dirPath) => {
   if (!dirPath || !path.isAbsolute(dirPath) || !fs.existsSync(dirPath)) return { ok: false };
@@ -515,6 +630,13 @@ ipcMain.handle('settings:setDownloadPath', (_, dirPath) => {
   config.downloadPath = dirPath;
   saveConfig(config);
   return { ok: true };
+});
+ipcMain.handle('settings:setTheme', (_, theme) => {
+  const ok = setTheme(theme);
+  if (ok && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:theme', theme);
+  }
+  return { ok };
 });
 
 ipcMain.handle('settings:selectFolder', async () => {
@@ -562,8 +684,62 @@ ipcMain.on('settings-window:close', () => settingsWindow?.close());
    APP LIFECYCLE
 ---------------------------------------------------------- */
 
+function startUrlReceiver() {
+  const server = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const urlObject = new URL(req.url, 'http://localhost');
+    if (req.method !== 'POST' || urlObject.pathname !== '/url') {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+      return;
+    }
+
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const url = (data.url || '').trim();
+        if (!url || !isYouTubeUrl(url)) throw new Error('Invalid YouTube URL');
+        currentTabUrl = url;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          if (!mainWindow.isVisible()) mainWindow.show();
+          mainWindow.focus();
+          mainWindow.webContents.send('new-url', url);
+        }
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('OK');
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Bad Request');
+      }
+    });
+  });
+
+  server.listen(3000, () => {
+    console.log('[Nekoload main] URL receiver listening on http://localhost:3000');
+  });
+
+  server.on('error', (err) => {
+    console.error('[Nekoload main] URL receiver error', err.message);
+  });
+}
+
 app.whenReady().then(() => {
   app.setName('Nekoload');
+  startUrlReceiver();
   createMainWindow();
 });
 

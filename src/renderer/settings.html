@@ -39,6 +39,28 @@
               />
               <button type="button" id="btnSelectFolder" class="settings-select-btn">Select</button>
             </div>
+            <p class="settings-hint">Videos and Audios are saved in separate subfolders here.</p>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Theme</label>
+            <div class="theme-options">
+              <label class="theme-option">
+                <input type="radio" name="theme" value="cyan" />
+                <span>Cyan (default)</span>
+              </label>
+              <label class="theme-option">
+                <input type="radio" name="theme" value="purple" />
+                <span>Purple</span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Background transparency</label>
+            <div class="settings-opacity-row">
+              <input type="range" id="backgroundOpacityRange" min="20" max="100" step="5" value="80" />
+              <span id="backgroundOpacityValue">80%</span>
+            </div>
+            <p class="settings-hint">Adjust the main app panel opacity.</p>
           </div>
         </div>
       </main>

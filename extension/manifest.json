@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Nekoload",
+  "version": "1.0",
+  "description": "Send the current YouTube video URL to Nekoload",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon128.png"
+  },
+  "permissions": ["tabs", "activeTab", "notifications"],
+  "host_permissions": ["http://127.0.0.1:3000/*", "http://localhost:3000/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Nekoload",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon128.png"
+    }
+  }
+}

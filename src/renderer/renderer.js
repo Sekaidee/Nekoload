@@ -7,7 +7,40 @@
 
   if (!window.nekoload) return;
 
-  const { startDownload, openFile, openFolder, renameFile, deleteFile, onDownloadStarted, onDownloadMetadata, onDownloadTitle, onDownloadProgress, onDownloadDone } = window.nekoload;
+  const { startDownload, openFile, openFolder, renameFile, deleteFile, onDownloadStarted, onDownloadMetadata, onDownloadTitle, onDownloadProgress, onDownloadDone, getTheme, getBackgroundOpacity, onThemeChanged, onBackgroundOpacityChanged, onUrlReceived } = window.nekoload;
+
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle('theme-purple', theme === 'purple');
+    document.documentElement.classList.toggle('theme-cyan', theme === 'cyan');
+  }
+
+  function applyOpacity(opacity) {
+    if (typeof opacity !== 'number') opacity = parseFloat(opacity);
+    if (Number.isNaN(opacity)) return;
+    document.documentElement.style.setProperty('--app-opacity', opacity.toFixed(2));
+  }
+
+  function getYouTubeVideoId(url) {
+    try {
+      const u = new URL(url);
+      if (u.hostname === 'youtu.be') return u.pathname.slice(1);
+      if (u.searchParams.has('v')) return u.searchParams.get('v');
+    } catch (_) {}
+    return '';
+  }
+
+  getTheme().then(applyTheme).catch(() => {});
+  getBackgroundOpacity().then(applyOpacity).catch(() => {});
+  onThemeChanged(applyTheme);
+  onBackgroundOpacityChanged(applyOpacity);
+  if (window.nekoload.onUrlReceived) {
+    window.nekoload.onUrlReceived((url) => {
+      if (urlInput) urlInput.value = url;
+      if (mainWindow?.isMinimized && mainWindow.isMinimized()) {
+        // no-op in renderer; app window focusing is handled in main process
+      }
+    });
+  }
 
   function thumbnailUrl(thumbnail, videoId) {
     if (thumbnail) return thumbnail;
@@ -49,30 +82,6 @@
     }
   }
 
-  function updatePasteButton() {
-    const btn = document.getElementById('btnPaste');
-    if (!btn) return;
-    navigator.clipboard.readText().then((text) => {
-      btn.style.display = isYouTubeUrl(text) ? '' : 'none';
-    }).catch(() => { btn.style.display = 'none'; });
-  }
-
-  const btnPaste = document.getElementById('btnPaste');
-  if (btnPaste) {
-    btnPaste.addEventListener('click', () => {
-      navigator.clipboard.readText().then((text) => {
-        if (isYouTubeUrl(text)) {
-          urlInput.value = text.trim();
-          urlInput.focus();
-          btnPaste.style.display = 'none';
-        }
-      }).catch(() => {});
-    });
-  }
-  urlInput.addEventListener('focus', updatePasteButton);
-  window.addEventListener('focus', updatePasteButton);
-  setInterval(updatePasteButton, 800);
-
   // ---- Start download ----
   function getUrl() {
     const url = (urlInput.value || '').trim();
@@ -88,7 +97,7 @@
     });
   }
 
-  async function handleDownload(type) {
+  function handleDownload(type) {
     const url = getUrl();
     if (!url) {
       urlInput.focus();
@@ -98,12 +107,10 @@
     const clickedBtn = type === 'audio' ? btnAudio : btnVideo;
     clickedBtn.classList.add('is-loading');
     clickedBtn.disabled = true;
-    try {
-      await startDownload(url, type);
-    } catch (e) {
+    startDownload(url, type).catch((e) => {
       console.error(e);
       setButtonsReady();
-    }
+    });
   }
 
   btnAudio.addEventListener('click', () => handleDownload('audio'));

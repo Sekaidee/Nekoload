@@ -8,6 +8,17 @@ contextBridge.exposeInMainWorld('nekoload', {
 
   // App
   getDownloadPath: () => ipcRenderer.invoke('app:getDownloadPath'),
+  getTheme: () => ipcRenderer.invoke('app:getTheme'),
+  getBackgroundOpacity: () => ipcRenderer.invoke('app:getBackgroundOpacity'),
+  onThemeChanged: (cb) => {
+    ipcRenderer.on('app:theme', (_, theme) => cb(theme));
+  },
+  onBackgroundOpacityChanged: (cb) => {
+    ipcRenderer.on('app:background-opacity', (_, opacity) => cb(opacity));
+  },
+  onUrlReceived: (cb) => {
+    ipcRenderer.on('new-url', (_, url) => cb(url));
+  },
   openSettings: () => ipcRenderer.send('open-settings'),
 
   // Download
