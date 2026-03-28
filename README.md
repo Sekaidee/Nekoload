@@ -1,7 +1,8 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/Sekaidee/Nekoload/3b5fe3095680b55ac3b2d8064cb0ac88c7e3d889/src/renderer/SIcon.png" width="300" />
 </p>
-# Nekoload
+
+## Nekoload
 
 A clean, minimal YouTube downloader for Windows (Electron + yt-dlp + ffmpeg).
 
