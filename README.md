@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Sekaidee/Nekoload/3b5fe3095680b55ac3b2d8064cb0ac88c7e3d889/src/renderer/SIcon.png" width="300" />
+</p>
 # Nekoload
 
 A clean, minimal YouTube downloader for Windows (Electron + yt-dlp + ffmpeg).
@@ -33,20 +36,4 @@ Output is in the `dist` folder. The `Tools` folder (yt-dlp, ffmpeg) is included 
 
 1. Paste a YouTube URL in the input field.
 2. Click **Audio** for best audio only, or **Video** for best video + audio (merged with ffmpeg).
-3. Track progress in the list; double-click a completed item to open the file.
-4. Use the ⋮ menu on each item for: Open file, Open folder, Rename, Delete.
 
-## Project structure
-
-```
-Nekoload/
-├── main.js           # Electron main process (window, IPC, yt-dlp spawn)
-├── preload.js        # Context bridge (secure API for renderer)
-├── package.json
-├── Tools/            # yt-dlp, ffmpeg (included in build as resources/tools)
-├── src/renderer/
-│   ├── index.html
-│   ├── styles.css
-│   └── renderer.js
-└── README.md
-```

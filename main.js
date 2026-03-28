@@ -137,6 +137,7 @@ function sanitizeFilename(title) {
 function createMainWindow() {
   const iconPath = getAppIcon();
   mainWindow = new BrowserWindow({
+    title: 'Nekoload',
     width: 720,
     height: 560,
     minWidth: 520,

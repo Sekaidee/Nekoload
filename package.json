@@ -1,43 +1,74 @@
 {
   "name": "nekoload",
+  "productName": "Nekoload",
   "version": "1.0.0",
-  "description": "By Sekaide Studio",
+  "description": "Nekoload - YouTube downloader for Windows.",
   "main": "main.js",
+  "author": "Sekaide Studio",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
-  "author": "",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "rcedit": "^5.0.2"
   },
   "build": {
-  "appId": "SekaideStudio.Nekoload",
-  "productName": "Nekoload",
-  "directories": {
-    "output": "dist"
-  },
-  "files": [
-    "main.js",
-    "preload.js",
-    "preload-settings.js",
-    "src/**/*",
-    "package.json"
-  ],
-  "extraResources": [
-    {
-      "from": "./Tools",
-      "to": "tools",
-      "filter": ["**/*"]
+    "appId": "SekaideStudio.Nekoload",
+    "productName": "Nekoload",
+    "copyright": "Copyright © Sekaide Studio",
+    "icon": "src/renderer/SIcon.ico",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-settings.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "afterPack": "./scripts/afterPack.js",
+    "extraResources": [
+      {
+        "from": "./Tools",
+        "to": "tools",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "./extension",
+        "to": "extension",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "nsis": {
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "shortcutName": "Nekoload",
+      "uninstallDisplayName": "Nekoload",
+      "installerIcon": "src/renderer/SIcon.ico",
+      "uninstallerIcon": "src/renderer/SIcon.ico",
+      "installerHeaderIcon": "src/renderer/SIcon.ico",
+      "oneClick": true,
+      "perMachine": false
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "src/renderer/SIcon.ico",
+      "executableName": "Nekoload",
+      "sign": null,
+      "signAndEditExecutable": false,
+      "signDlls": false,
+      "verifyUpdateCodeSignature": false,
+      "publisherName": "Sekaide Studio",
+      "legalTrademarks": "Nekoload"
     }
-  ],
-  "win": {
-    "target": "nsis",
-    "icon": "src/renderer/SIcon.ico"
   }
-}
 }
