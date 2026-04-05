@@ -22,45 +22,81 @@
       <aside class="settings-sidebar">
         <nav class="settings-nav">
           <button type="button" class="settings-nav-item active" data-tab="general">General</button>
+          <button type="button" class="settings-nav-item" data-tab="appearance">Appearance</button>
         </nav>
       </aside>
       <main class="settings-content">
-        <div class="settings-tab" id="tab-general">
+        <div class="settings-tab is-active" id="tab-general">
           <h1 class="settings-tab-title">General</h1>
-          <div class="settings-group">
-            <label class="settings-label" for="downloadPathInput">Download path</label>
-            <div class="settings-path-row">
-              <input
-                type="text"
-                id="downloadPathInput"
-                class="settings-path-input"
-                readonly
-                placeholder="Select a folder…"
-              />
-              <button type="button" id="btnSelectFolder" class="settings-select-btn">Select</button>
+
+          <div class="settings-panel-card">
+            <div class="settings-panel-card__head">
+              <span class="settings-panel-card__eyebrow">Storage</span>
+              <span class="settings-panel-card__title">Download folder</span>
             </div>
-            <p class="settings-hint">Videos and Audios are saved in separate subfolders here.</p>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Theme</label>
-            <div class="theme-options">
-              <label class="theme-option">
-                <input type="radio" name="theme" value="cyan" />
-                <span>Cyan (default)</span>
-              </label>
-              <label class="theme-option">
-                <input type="radio" name="theme" value="purple" />
-                <span>Purple</span>
-              </label>
+            <div class="settings-panel-card__body">
+              <div class="settings-path-row">
+                <input
+                  type="text"
+                  id="downloadPathInput"
+                  class="settings-path-input"
+                  readonly
+                  placeholder="Select a folder…"
+                />
+                <button type="button" id="btnSelectFolder" class="settings-select-btn">Select</button>
+              </div>
+              <p class="settings-hint">Videos and Audios are saved in separate subfolders here.</p>
             </div>
           </div>
-          <div class="settings-group">
-            <label class="settings-label">Background transparency</label>
-            <div class="settings-opacity-row">
-              <input type="range" id="backgroundOpacityRange" min="20" max="100" step="5" value="80" />
-              <span id="backgroundOpacityValue">80%</span>
+
+          <div class="settings-panel-card">
+            <div class="settings-panel-card__head">
+              <span class="settings-panel-card__eyebrow">System</span>
+              <span class="settings-panel-card__title">Windows startup</span>
             </div>
-            <p class="settings-hint">Adjust the main app panel opacity.</p>
+            <label class="panel-switch settings-panel-card__switch" id="openAtLoginSwitchLabel" title="Runs in the tray so the extension can open Nekoload quickly">
+              <span class="panel-switch__track" aria-hidden="true"></span>
+              <input type="checkbox" id="openAtLoginToggle" />
+              <span class="panel-switch__text">Launch Nekoload when you sign in to Windows</span>
+            </label>
+            <p class="settings-hint settings-panel-card__hint">Keeps the app available in the tray so the browser extension can open downloads quickly.</p>
+          </div>
+        </div>
+
+        <div class="settings-tab" id="tab-appearance">
+          <h1 class="settings-tab-title">Appearance</h1>
+
+          <div class="settings-panel-card">
+            <div class="settings-panel-card__head">
+              <span class="settings-panel-card__eyebrow">Look &amp; feel</span>
+              <span class="settings-panel-card__title">Theme</span>
+            </div>
+            <div class="settings-panel-card__body">
+              <div class="theme-options">
+                <label class="theme-option">
+                  <input type="radio" name="theme" value="cyan" />
+                  <span>Cyan (default)</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="theme" value="purple" />
+                  <span>Purple</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-panel-card">
+            <div class="settings-panel-card__head">
+              <span class="settings-panel-card__eyebrow">Window</span>
+              <span class="settings-panel-card__title">Background transparency</span>
+            </div>
+            <div class="settings-panel-card__body">
+              <div class="settings-opacity-row">
+                <input type="range" id="backgroundOpacityRange" min="20" max="100" step="5" value="80" />
+                <span id="backgroundOpacityValue" class="settings-opacity-value">80%</span>
+              </div>
+              <p class="settings-hint">How see-through the main Nekoload window is.</p>
+            </div>
           </div>
         </div>
       </main>

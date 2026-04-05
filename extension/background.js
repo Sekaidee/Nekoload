@@ -1,13 +1,13 @@
-async function fetchWithTimeout(endpoint, url, timeoutMs = 400, extraOptions = {}) {
+async function fetchWithTimeout(endpoint, body, timeoutMs = 400, extraOptions = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify(body),
       signal: controller.signal,
       ...extraOptions,
     });
@@ -16,15 +16,17 @@ async function fetchWithTimeout(endpoint, url, timeoutMs = 400, extraOptions = {
   }
 }
 
-async function sendToApp(url) {
-  const endpoints = [
-    'http://127.0.0.1:3000/url',
-    'http://localhost:3000/url'
-  ];
+async function sendToApp(url, downloadType) {
+  const body =
+    downloadType === 'audio' || downloadType === 'video'
+      ? { url, downloadType }
+      : { url };
+
+  const endpoints = ['http://127.0.0.1:3000/url', 'http://localhost:3000/url'];
 
   for (const endpoint of endpoints) {
     try {
-      const res = await fetchWithTimeout(endpoint, url, 400);
+      const res = await fetchWithTimeout(endpoint, body, 8000);
       if (res.ok) {
         return true;
       }
@@ -33,9 +35,8 @@ async function sendToApp(url) {
     }
   }
 
-  // final fallback: try local host without CORS restrictions, but don’t wait forever
   try {
-    await fetchWithTimeout('http://127.0.0.1:3000/url', url, 400, { mode: 'no-cors' });
+    await fetchWithTimeout('http://127.0.0.1:3000/url', body, 8000, { mode: 'no-cors' });
     return true;
   } catch (err) {
     console.warn('Fallback no-cors send failed', err);
@@ -48,7 +49,12 @@ function isYouTubeUrl(url) {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
-    return hostname === 'youtu.be' || hostname === 'www.youtu.be' || hostname.includes('youtube.com') || hostname === 'youtube-nocookie.com';
+    return (
+      hostname === 'youtu.be' ||
+      hostname === 'www.youtu.be' ||
+      hostname.includes('youtube.com') ||
+      hostname === 'youtube-nocookie.com'
+    );
   } catch (_) {
     return false;
   }
@@ -103,6 +109,28 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 });
 
 updateIconForActiveTab();
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'NEKOLOAD_SEND' && msg.url) {
+    sendToApp(msg.url, msg.downloadType)
+      .then((ok) => {
+        if (!ok) {
+          chrome.notifications.create('', {
+            type: 'basic',
+            iconUrl: 'icon.png',
+            title: 'Nekoload',
+            message: 'Start Nekoload so it can receive this video.',
+          });
+        }
+        sendResponse({ ok: Boolean(ok) });
+      })
+      .catch(() => {
+        sendResponse({ ok: false });
+      });
+    return true;
+  }
+  return false;
+});
 
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.url) {

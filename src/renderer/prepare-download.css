@@ -1,0 +1,220 @@
+.prepare-download-app.window-closing {
+  animation: windowSlideDownOut 0.3s ease-out forwards;
+}
+
+.prepare-download-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 18px 16px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.prepare-dialog-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  background: linear-gradient(
+    155deg,
+    rgba(var(--accent-deep-rgb), 0.14) 0%,
+    rgba(17, 19, 27, 0.92) 42%,
+    rgba(10, 12, 18, 0.96) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 20px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.prepare-dialog-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 18px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), transparent);
+}
+
+.prepare-dialog-card__eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan-300);
+  opacity: 0.85;
+}
+
+.prepare-dialog-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.prepare-dialog-card__body {
+  padding: 14px 16px 12px;
+}
+
+.prepare-dialog-content {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
+  min-height: 0;
+  min-width: 0;
+}
+
+.prepare-dialog-thumb-wrap {
+  flex-shrink: 0;
+  width: 200px;
+  max-width: 40%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: rgba(8, 10, 16, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+
+.prepare-download-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.prepare-download-thumb-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+}
+
+.prepare-download-thumb-ph.is-hidden {
+  display: none;
+}
+
+.prepare-dialog-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.prepare-download-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.45;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.prepare-download-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.prepare-dialog-card__subs.panel-switch {
+  display: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+}
+
+.prepare-dialog-card__subs.panel-switch:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prepare-dialog-card__subs.panel-switch.is-visible {
+  display: flex;
+}
+
+.prepare-dialog-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.prepare-btn {
+  min-width: 104px;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth), filter var(--transition-smooth), opacity var(--transition);
+}
+
+.prepare-btn:active {
+  transform: scale(0.98);
+}
+
+.prepare-btn-cancel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+.prepare-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+
+.prepare-btn-download {
+  border: 1px solid var(--cyan-audio-border);
+  background: linear-gradient(135deg, var(--cyan-audio-bg), rgba(var(--accent-deep-rgb), 0.28));
+  color: var(--cyan-200);
+}
+
+.prepare-btn-download:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.18);
+}
+
+.prepare-btn-download:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.prepare-download-app .prepare-btn-download.is-video {
+  border-color: var(--cyan-video-border);
+  background: linear-gradient(135deg, var(--cyan-video-bg), rgba(var(--accent-deep-rgb), 0.25));
+}
+
+@media (max-width: 480px) {
+  .prepare-dialog-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .prepare-dialog-thumb-wrap {
+    width: 100%;
+    max-width: none;
+  }
+}

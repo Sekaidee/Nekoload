@@ -1,0 +1,131 @@
+#nekoload-yt-float {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  z-index: 99999;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  pointer-events: none;
+}
+
+#nekoload-yt-float * {
+  pointer-events: auto;
+}
+
+.nekoload-float-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  animation: nekoload-float-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes nekoload-float-in {
+  from {
+    opacity: 0;
+    transform: translate(20px, -24px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* Buttons under the GIF — visible only when toggled (.is-expanded), not on hover */
+.nekoload-float-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+  max-width: 220px;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  overflow: hidden;
+  margin-top: 0;
+  pointer-events: none;
+  transition:
+    max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.26s ease,
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    margin 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nekoload-float-inner.is-expanded .nekoload-float-actions {
+  max-height: 120px;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 10px;
+  pointer-events: auto;
+}
+
+.nekoload-float-actions .nekoload-btn {
+  white-space: nowrap;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #e8faff;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.nekoload-float-actions .nekoload-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.nekoload-float-actions .nekoload-btn:active {
+  transform: translateY(0);
+}
+
+.nekoload-btn-audio {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.55), rgba(8, 50, 70, 0.95));
+}
+
+.nekoload-btn-video {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.4), rgba(8, 40, 55, 0.95));
+}
+
+/* Clean GIF: no border or frame */
+.nekoload-float-gif {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  overflow: visible;
+  border-radius: 0;
+  outline: none;
+  transition: transform 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nekoload-float-gif:hover {
+  transform: scale(1.05);
+}
+
+.nekoload-float-gif:focus-visible {
+  outline: 2px solid rgba(6, 182, 212, 0.5);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.nekoload-float-inner.is-expanded .nekoload-float-gif {
+  transform: scale(1.02);
+}
+
+.nekoload-float-gif img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  vertical-align: middle;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+}

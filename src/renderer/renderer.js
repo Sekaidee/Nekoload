@@ -4,10 +4,29 @@
   const btnVideo = document.getElementById('btnVideo');
   const downloadList = document.getElementById('downloadList');
   const template = document.getElementById('downloadItemTemplate');
-
   if (!window.nekoload) return;
 
-  const { startDownload, openFile, openFolder, renameFile, deleteFile, onDownloadStarted, onDownloadMetadata, onDownloadTitle, onDownloadProgress, onDownloadDone, getTheme, getBackgroundOpacity, onThemeChanged, onBackgroundOpacityChanged, onUrlReceived } = window.nekoload;
+  const embedSubtitlesChk = document.getElementById('embedSubtitlesChk');
+
+  const {
+    startDownload,
+    getEmbedSubtitles,
+    setEmbedSubtitles,
+    openFile,
+    openFolder,
+    renameFile,
+    deleteFile,
+    onDownloadStarted,
+    onDownloadMetadata,
+    onDownloadTitle,
+    onDownloadProgress,
+    onDownloadDone,
+    getTheme,
+    getBackgroundOpacity,
+    onThemeChanged,
+    onBackgroundOpacityChanged,
+    onUrlReceived,
+  } = window.nekoload;
 
   function applyTheme(theme) {
     document.documentElement.classList.toggle('theme-purple', theme === 'purple');
@@ -20,32 +39,31 @@
     document.documentElement.style.setProperty('--app-opacity', opacity.toFixed(2));
   }
 
-  function getYouTubeVideoId(url) {
-    try {
-      const u = new URL(url);
-      if (u.hostname === 'youtu.be') return u.pathname.slice(1);
-      if (u.searchParams.has('v')) return u.searchParams.get('v');
-    } catch (_) {}
-    return '';
-  }
-
   getTheme().then(applyTheme).catch(() => {});
   getBackgroundOpacity().then(applyOpacity).catch(() => {});
   onThemeChanged(applyTheme);
   onBackgroundOpacityChanged(applyOpacity);
-  if (window.nekoload.onUrlReceived) {
-    window.nekoload.onUrlReceived((url) => {
-      if (urlInput) urlInput.value = url;
-      if (mainWindow?.isMinimized && mainWindow.isMinimized()) {
-        // no-op in renderer; app window focusing is handled in main process
-      }
+
+  const embedSubsLabel = embedSubtitlesChk?.closest('.panel-switch');
+  function syncEmbedSubsToggleClass() {
+    if (!embedSubsLabel || !embedSubtitlesChk) return;
+    embedSubsLabel.classList.toggle('is-checked', embedSubtitlesChk.checked);
+  }
+  if (embedSubtitlesChk && getEmbedSubtitles) {
+    getEmbedSubtitles().then((on) => {
+      embedSubtitlesChk.checked = Boolean(on);
+      syncEmbedSubsToggleClass();
+    }).catch(() => {});
+    embedSubtitlesChk.addEventListener('change', () => {
+      syncEmbedSubsToggleClass();
+      setEmbedSubtitles(embedSubtitlesChk.checked).catch(() => {});
     });
   }
 
-  function thumbnailUrl(thumbnail, videoId) {
-    if (thumbnail) return thumbnail;
-    if (videoId) return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-    return '';
+  if (onUrlReceived) {
+    onUrlReceived((url) => {
+      if (urlInput) urlInput.value = url;
+    });
   }
 
   // ---- Window controls ----
@@ -107,7 +125,8 @@
     const clickedBtn = type === 'audio' ? btnAudio : btnVideo;
     clickedBtn.classList.add('is-loading');
     clickedBtn.disabled = true;
-    startDownload(url, type).catch((e) => {
+    const subs = type === 'video' && embedSubtitlesChk && embedSubtitlesChk.checked;
+    startDownload(url, type, subs).catch((e) => {
       console.error(e);
       setButtonsReady();
     });
@@ -241,6 +260,12 @@
     audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
     video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>',
   };
+
+  function thumbnailUrl(thumbnail, videoId) {
+    if (thumbnail) return thumbnail;
+    if (videoId) return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    return '';
+  }
 
   function createItem(id, title, thumbnail, videoId, type) {
     const t = type === 'audio' ? 'audio' : 'video';

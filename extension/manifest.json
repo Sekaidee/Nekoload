@@ -9,7 +9,11 @@
     "128": "icon128.png"
   },
   "permissions": ["tabs", "activeTab", "notifications"],
-  "host_permissions": ["http://127.0.0.1:3000/*", "http://localhost:3000/*"],
+  "host_permissions": [
+    "http://127.0.0.1:3000/*",
+    "http://localhost:3000/*",
+    "https://ribvfsoauqiriofyrxiq.supabase.co/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -20,5 +24,19 @@
       "48": "icon.png",
       "128": "icon128.png"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://youtube.com/*",
+        "*://m.youtube.com/*",
+        "*://music.youtube.com/*",
+        "*://youtu.be/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
 }

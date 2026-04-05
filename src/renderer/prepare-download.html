@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; script-src 'self'; font-src 'self' data: https://fonts.gstatic.com;">
+  <title>Nekoload — Download</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="prepare-download.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app prepare-download-app">
+    <header class="titlebar" data-electron-drag>
+      <span class="titlebar-title">Download</span>
+      <div class="titlebar-actions">
+        <button type="button" class="titlebar-btn titlebar-btn-close" id="prepareCloseBtn" title="Close">×</button>
+      </div>
+    </header>
+    <main class="prepare-download-main">
+      <div class="prepare-dialog-card">
+        <div class="prepare-dialog-card__head">
+          <span class="prepare-dialog-card__eyebrow">From browser</span>
+          <span class="prepare-dialog-card__title">Confirm download</span>
+        </div>
+        <div class="prepare-dialog-card__body">
+          <div class="prepare-dialog-content">
+            <div class="prepare-dialog-thumb-wrap">
+              <img id="prepareThumb" src="" alt="" class="prepare-download-thumb" hidden />
+              <div id="prepareThumbPh" class="prepare-download-thumb-ph">No thumbnail</div>
+            </div>
+            <div class="prepare-dialog-details">
+              <h2 id="prepareTitle" class="prepare-download-title">Fetching video info…</h2>
+              <p id="prepareMeta" class="prepare-download-meta">Duration: — · Est. size: —</p>
+            </div>
+          </div>
+        </div>
+        <label id="prepareEmbedRow" class="panel-switch prepare-dialog-card__subs" title="Optional. Requires ffmpeg. English (en) only.">
+          <span class="panel-switch__track" aria-hidden="true"></span>
+          <input type="checkbox" id="prepareEmbedSubtitlesChk" />
+          <span class="panel-switch__text">Embed English subtitles in video (when available)</span>
+        </label>
+        <div class="prepare-dialog-card__actions">
+          <button type="button" id="prepareCancelBtn" class="prepare-btn prepare-btn-cancel">Cancel</button>
+          <button type="button" id="prepareDownloadBtn" class="prepare-btn prepare-btn-download">Download</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="prepare-download.js"></script>
+</body>
+</html>

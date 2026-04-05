@@ -22,7 +22,10 @@ contextBridge.exposeInMainWorld('nekoload', {
   openSettings: () => ipcRenderer.send('open-settings'),
 
   // Download
-  startDownload: (url, type) => ipcRenderer.invoke('download:start', { url, type }),
+  getEmbedSubtitles: () => ipcRenderer.invoke('app:getEmbedSubtitles'),
+  setEmbedSubtitles: (enabled) => ipcRenderer.invoke('app:setEmbedSubtitles', enabled),
+  startDownload: (url, type, embedSubtitles) =>
+    ipcRenderer.invoke('download:start', { url, type, embedSubtitles: Boolean(embedSubtitles) }),
   cancelDownload: (id) => ipcRenderer.send('download:cancel', id),
   onDownloadStarted: (cb) => {
     ipcRenderer.on('download:started', (_, data) => cb(data));

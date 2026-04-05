@@ -176,6 +176,127 @@ body {
   margin-bottom: 20px;
 }
 
+.url-header-panel {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  background: linear-gradient(
+    155deg,
+    rgba(var(--accent-deep-rgb), 0.14) 0%,
+    rgba(17, 19, 27, 0.92) 42%,
+    rgba(10, 12, 18, 0.96) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 20px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.url-header-panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), transparent);
+}
+
+.url-header-panel__eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan-300);
+  opacity: 0.85;
+}
+
+.url-header-panel__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.url-header-panel__row.input-row {
+  padding: 14px 14px 12px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* Shared toggle switch (main URL bar, settings, prepare dialog) */
+.panel-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 18px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+  transition: background var(--transition-smooth), color var(--transition-smooth);
+}
+
+.panel-switch:hover {
+  color: var(--text);
+}
+
+.url-header-panel > .panel-switch {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.url-header-panel > .panel-switch:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.panel-switch__track {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+  position: relative;
+  transition: background var(--transition-smooth), border-color var(--transition-smooth);
+}
+
+.panel-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform var(--transition-smooth), background var(--transition-smooth);
+}
+
+.panel-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.panel-switch.is-checked .panel-switch__track {
+  background: rgba(var(--accent-rgb), 0.25);
+  border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+.panel-switch.is-checked .panel-switch__track::after {
+  transform: translateX(16px);
+  background: var(--cyan-200);
+}
+
+.panel-switch__text {
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
 .input-row {
   display: flex;
   gap: 12px;
@@ -189,20 +310,18 @@ body {
 
 .settings-btn {
   width: 48px;
-  height: 48px;
+  min-height: 48px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
-  background: var(--bg-panel);
-  backdrop-filter: blur(var(--blur));
-  -webkit-backdrop-filter: blur(var(--blur));
-  border: 1px solid var(--border);
+  align-self: stretch;
+  background: rgba(8, 10, 16, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background var(--transition-smooth), color var(--transition-smooth), transform var(--transition-smooth);
+  transition: background var(--transition-smooth), color var(--transition-smooth), transform var(--transition-smooth), border-color var(--transition-smooth);
 }
 
 .settings-btn:hover {
@@ -233,16 +352,16 @@ body {
   gap: 12px;
   align-items: stretch;
   padding: 10px 10px 10px 14px;
-  background: rgba(17, 19, 27, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-lg);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 16px 40px rgba(0, 0, 0, 0.18);
+  background: rgba(8, 10, 16, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 
-.input-wrap:focus-within {
+.url-header-panel .input-wrap:focus-within {
   border-color: var(--cyan-focus);
-  box-shadow: 0 0 0 3px var(--cyan-glow);
+  box-shadow: 0 0 0 2px var(--cyan-glow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .url-input {

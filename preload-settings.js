@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('nekoloadSettings', {
     ipcRenderer.on('app:background-opacity', (_, opacity) => cb(opacity));
   },
   setDownloadPath: (dirPath) => ipcRenderer.invoke('settings:setDownloadPath', dirPath),
+  getOpenAtLogin: () => ipcRenderer.invoke('settings:getOpenAtLogin'),
+  setOpenAtLogin: (enabled) => ipcRenderer.invoke('settings:setOpenAtLogin', enabled),
   selectFolder: () => ipcRenderer.invoke('settings:selectFolder'),
   close: () => ipcRenderer.send('settings-window:close'),
 });

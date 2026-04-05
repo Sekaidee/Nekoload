@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Notification, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Notification, dialog, Tray, Menu, nativeImage } = require('electron');
 app.setAppUserModelId("SekaideStudio.Nekoload");
 const path = require('path');
 const { spawn } = require('child_process');
@@ -9,12 +9,19 @@ const http = require('http');
 
 let mainWindow = null;
 let settingsWindow = null;
+let prepareDownloadWindow = null;
+let tray = null;
+/** When false, the main window close hides to tray instead of quitting. */
+let allowMainWindowQuit = false;
 let currentTabUrl = null;
+/** Last extension “prepare download” payload; replayed after renderer load. */
+let pendingPreparePayload = null;
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'nekoload-config.json');
 const DEFAULT_THEME = 'cyan';
 const VALID_THEMES = ['cyan', 'purple'];
 const DEFAULT_OPACITY = 0.8;
+const DEFAULT_OPEN_AT_LOGIN = false;
 
 function getDefaultDownloadPath() {
   if (app.isPackaged) return path.dirname(process.execPath);
@@ -32,10 +39,18 @@ function loadConfig() {
       const backgroundOpacity = typeof data.backgroundOpacity === 'number' && data.backgroundOpacity >= 0.2 && data.backgroundOpacity <= 1
         ? data.backgroundOpacity
         : DEFAULT_OPACITY;
-      return { downloadPath, theme, backgroundOpacity };
+      const openAtLogin = typeof data.openAtLogin === 'boolean' ? data.openAtLogin : DEFAULT_OPEN_AT_LOGIN;
+      const embedSubtitles = typeof data.embedSubtitles === 'boolean' ? data.embedSubtitles : false;
+      return { downloadPath, theme, backgroundOpacity, openAtLogin, embedSubtitles };
     }
   } catch (_) {}
-  return { downloadPath: getDefaultDownloadPath(), theme: DEFAULT_THEME, backgroundOpacity: DEFAULT_OPACITY };
+  return {
+    downloadPath: getDefaultDownloadPath(),
+    theme: DEFAULT_THEME,
+    backgroundOpacity: DEFAULT_OPACITY,
+    openAtLogin: DEFAULT_OPEN_AT_LOGIN,
+    embedSubtitles: false,
+  };
 }
 
 function saveConfig(config) {
@@ -54,6 +69,40 @@ function getTheme() {
 
 function getBackgroundOpacity() {
   return loadConfig().backgroundOpacity;
+}
+
+function getOpenAtLogin() {
+  return loadConfig().openAtLogin;
+}
+
+function getEmbedSubtitles() {
+  return loadConfig().embedSubtitles === true;
+}
+
+function setEmbedSubtitles(enabled) {
+  const config = loadConfig();
+  config.embedSubtitles = Boolean(enabled);
+  saveConfig(config);
+  return true;
+}
+
+function setOpenAtLogin(enabled) {
+  const config = loadConfig();
+  config.openAtLogin = Boolean(enabled);
+  saveConfig(config);
+  applyOpenAtLoginSetting();
+  return true;
+}
+
+function applyOpenAtLoginSetting() {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: getOpenAtLogin(),
+      path: app.getPath('exe'),
+    });
+  } catch (e) {
+    console.warn('[Nekoload main] setLoginItemSettings', e.message);
+  }
 }
 
 function setBackgroundOpacity(opacity) {
@@ -113,21 +162,27 @@ function getAppIcon() {
   return fs.existsSync(png) ? png : null;
 }
 
-/** Sanitize a string for use as filename: spaces to -, remove only invalid filename chars. Preserves Japanese, Arabic, and all Unicode letters. */
+/**
+ * Sanitize for filesystem: strip illegal path chars, turn spaces/punctuation/symbols into hyphens.
+ * Keeps Unicode letters & numbers across scripts; collapses repeated hyphens.
+ */
 function sanitizeFilename(title) {
   if (!title || typeof title !== 'string') return 'download';
-  const invalidFilenameChars = /[<>:"/\\|?*\x00-\x1f\x7f]/g;
-  let s = title
-    .normalize('NFC')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(invalidFilenameChars, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  if (!s || s === '-' || s.length === 0) {
+  const illegalPath = /[<>:"/\\|?*\x00-\x1f\x7f]/g;
+  let s = title.normalize('NFC').trim().replace(illegalPath, '');
+  try {
+    s = s.replace(/[^\p{L}\p{N}]+/gu, '-');
+  } catch (_) {
+    s = s.replace(/[^a-zA-Z0-9]+/g, '-');
+  }
+  s = s.replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!s || s === '-') {
     return 'download';
   }
-  return s;
+  if (s.length > 180) {
+    s = s.slice(0, 180).replace(/-+$/, '');
+  }
+  return s || 'download';
 }
 
 /* ----------------------------------------------------------
@@ -166,6 +221,12 @@ function createMainWindow() {
     mainWindow.maximize();
     mainWindow.show();
   });
+  mainWindow.on('close', (event) => {
+    if (!allowMainWindowQuit) {
+      event.preventDefault();
+      if (!mainWindow.isDestroyed()) mainWindow.hide();
+    }
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -176,15 +237,31 @@ ipcMain.on('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.on('window:close', () => {
-  if (!mainWindow) return;
-  const win = mainWindow;
-  win.webContents.executeJavaScript(
-    `document.querySelector('.app')?.classList.add('window-closing')`
-  ).catch(() => {});
-  setTimeout(() => win.destroy(), 320);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents
+    .executeJavaScript(`document.querySelector('.app')?.classList.add('window-closing')`)
+    .catch(() => {});
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+    mainWindow?.webContents
+      .executeJavaScript(`document.querySelector('.app')?.classList.remove('window-closing')`)
+      .catch(() => {});
+  }, 280);
 });
 
 ipcMain.handle('app:getDownloadPath', () => getDownloadPath());
+ipcMain.handle('app:getEmbedSubtitles', () => getEmbedSubtitles());
+ipcMain.handle('app:setEmbedSubtitles', (_, enabled) => {
+  setEmbedSubtitles(enabled);
+  return { ok: true };
+});
+
+ipcMain.on('prepare-download-window:close', () => {
+  pendingPreparePayload = null;
+  if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.close();
+  }
+});
 
 /* ----------------------------------------------------------
    DOWNLOAD SYSTEM
@@ -298,7 +375,157 @@ function fetchMetadata(ytDlpPath, url) {
   });
 }
 
-ipcMain.handle('download:start', async (_, { url, type }) => {
+function formatDuration(seconds) {
+  if (seconds == null || Number.isNaN(seconds)) return '—';
+  const s = Math.floor(Number(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function formatFileSize(bytes) {
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i += 1;
+  }
+  const rounded = i === 0 || n >= 10 ? Math.round(n) : Math.round(n * 10) / 10;
+  return `${rounded} ${units[i]}`;
+}
+
+function fetchVideoInfo(ytDlpPath, url) {
+  return new Promise((resolve) => {
+    const child = spawn(
+      ytDlpPath,
+      ['--dump-json', '--no-playlist', url],
+      { env: getSpawnEnv() }
+    );
+    let out = '';
+    child.stdout.on('data', (d) => (out += d.toString()));
+    child.on('close', () => {
+      try {
+        const data = JSON.parse(out);
+        const duration = typeof data.duration === 'number' ? data.duration : null;
+        let sizeBytes = null;
+        if (typeof data.filesize === 'number' && data.filesize > 0) {
+          sizeBytes = data.filesize;
+        } else if (typeof data.filesize_approx === 'number' && data.filesize_approx > 0) {
+          sizeBytes = data.filesize_approx;
+        }
+        resolve({
+          title: data.title || '',
+          thumbnail: data.thumbnail || data.thumbnails?.[0]?.url || '',
+          duration,
+          sizeBytes,
+          videoId: data.id || extractYouTubeVideoId(url),
+        });
+      } catch (_) {
+        resolve({
+          title: '',
+          thumbnail: '',
+          duration: null,
+          sizeBytes: null,
+          videoId: extractYouTubeVideoId(url),
+        });
+      }
+    });
+    child.on('error', () => {
+      resolve({
+        title: '',
+        thumbnail: '',
+        duration: null,
+        sizeBytes: null,
+        videoId: extractYouTubeVideoId(url),
+      });
+    });
+  });
+}
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+}
+
+function pushPrepareDownloadPayload(payload) {
+  pendingPreparePayload = payload;
+  if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    const wc = prepareDownloadWindow.webContents;
+    if (!wc.isDestroyed() && !wc.isLoading()) {
+      wc.send('prepare-window:update', payload);
+    }
+  }
+}
+
+function openPrepareDownloadWindow() {
+  const iconPath = getAppIcon();
+  if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.setAlwaysOnTop(true);
+    prepareDownloadWindow.focus();
+    if (pendingPreparePayload) {
+      const wc = prepareDownloadWindow.webContents;
+      if (!wc.isDestroyed() && !wc.isLoading()) {
+        wc.send('prepare-window:update', pendingPreparePayload);
+      }
+    }
+    return;
+  }
+  prepareDownloadWindow = new BrowserWindow({
+    width: 580,
+    height: 340,
+    minWidth: 440,
+    minHeight: 280,
+    frame: false,
+    transparent: true,
+    titleBarStyle: 'hidden',
+    title: 'Nekoload — Download',
+    show: false,
+    alwaysOnTop: true,
+    ...(iconPath && { icon: iconPath }),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-prepare.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  prepareDownloadWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'prepare-download.html'));
+  prepareDownloadWindow.webContents.once('did-finish-load', () => {
+    if (!prepareDownloadWindow || prepareDownloadWindow.isDestroyed()) return;
+    const wc = prepareDownloadWindow.webContents;
+    wc.send('app:theme', getTheme());
+    wc.send('app:background-opacity', getBackgroundOpacity());
+    if (pendingPreparePayload) {
+      wc.send('prepare-window:update', pendingPreparePayload);
+    }
+  });
+  prepareDownloadWindow.once('ready-to-show', () => {
+    if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+      prepareDownloadWindow.setAlwaysOnTop(true);
+      prepareDownloadWindow.show();
+      prepareDownloadWindow.focus();
+    }
+  });
+  prepareDownloadWindow.on('closed', () => {
+    prepareDownloadWindow = null;
+    pendingPreparePayload = null;
+  });
+}
+
+ipcMain.handle('download:start', async (_, { url, type, embedSubtitles }) => {
+  pendingPreparePayload = null;
+  if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.close();
+  }
+
   const downloadPath = getDownloadPath();
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const ytDlpPath = getYtDlpPath();
@@ -321,17 +548,20 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
 
   const meta = await fetchMetadata(ytDlpPath, url);
   if (meta.thumbnail) downloadThumbnails.set(id, meta.thumbnail);
+  const nameSource = (meta.title && meta.title.trim()) || videoId || 'download';
+  const fileSafeTitle = sanitizeFilename(nameSource);
+  console.log('[Nekoload main] download:start', { fileSafeTitle, videoId, outDir });
 
-  const safeTitle = sanitizeFilename(meta.title || videoId || 'download');
-  console.log('[Nekoload main] download:start', { originalTitle: meta.title, safeTitle, videoId, outDir });
-  mainWindow?.webContents.send('download:metadata', {
-    id,
-    title: safeTitle,
-    thumbnail: meta.thumbnail || '',
-    videoId,
-  });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('download:metadata', {
+      id,
+      title: fileSafeTitle,
+      thumbnail: meta.thumbnail || '',
+      videoId,
+    });
+  }
 
-  const outputTemplate = path.join(outDir, safeTitle + '.%(ext)s').replace(/\\/g, '/');
+  const outputTemplate = path.join(outDir, fileSafeTitle + '.%(ext)s').replace(/\\/g, '/');
   const args = [
     '--newline',
     '--no-playlist',
@@ -349,18 +579,22 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
   if (type === 'audio') {
     args.push('-f', 'bestaudio*', '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
-    // Video + audio merged; subtitles embedded when available (requires ffmpeg).
     args.push(
       '-f',
       'bestvideo*[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
       '--merge-output-format',
-      'mp4',
-      '--write-subs',
-      '--write-auto-subs',
-      '--sub-langs',
-      'en.*,en',
-      '--embed-subs'
+      'mp4'
     );
+    if (embedSubtitles === true) {
+      // Explicit base languages only — avoids en.* matching tracks like en-zh-Hant that break over HTTP.
+      args.push(
+        '--write-subs',
+        '--write-auto-subs',
+        '--sub-langs',
+        'en,en-US,en-GB',
+        '--embed-subs'
+      );
+    }
   }
   args.push(url);
 
@@ -448,7 +682,7 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
       }
       let filePath = null;
       const ext = type === 'audio' ? '.mp3' : '.mp4';
-      const expectedFilename = safeTitle + ext;
+      const expectedFilename = fileSafeTitle + ext;
       const expectedPath = path.join(outDir, expectedFilename);
       
       if (success) {
@@ -485,14 +719,14 @@ ipcMain.handle('download:start', async (_, { url, type }) => {
             lastFilename = expectedFilename;
             filePath = expectedPath;
           }
-        } else if (!filePath && safeTitle && safeTitle !== 'download') {
+        } else if (!filePath && fileSafeTitle && fileSafeTitle !== 'download') {
           lastFilename = expectedFilename;
         }
       }
       console.log('[Nekoload main] download:done', { id, success, lastFilename, downloadPath, filePath, fileExists: filePath ? fs.existsSync(filePath) : false });
       const displayTitle = lastFilename && lastFilename.length > 0 && lastFilename !== '-' && lastFilename !== '-.mp4' && lastFilename !== '-.mp3'
         ? lastFilename.replace(/\.[^.]+$/, '')
-        : safeTitle;
+        : fileSafeTitle;
       mainWindow?.webContents.send('download:done', {
         id,
         success,
@@ -599,6 +833,9 @@ ipcMain.handle('app:setTheme', (_, theme) => {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.webContents.send('app:theme', theme);
   }
+  if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.webContents.send('app:theme', theme);
+  }
   return { ok: true };
 });
 ipcMain.handle('app:getBackgroundOpacity', () => getBackgroundOpacity());
@@ -611,6 +848,9 @@ ipcMain.handle('app:setBackgroundOpacity', (_, opacity) => {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
   }
+  if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
+  }
   return { ok: true };
 });
 
@@ -622,6 +862,9 @@ ipcMain.handle('settings:setBackgroundOpacity', (_, opacity) => {
   if (ok && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
   }
+  if (ok && prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.webContents.send('app:background-opacity', getBackgroundOpacity());
+  }
   return { ok };
 });
 
@@ -632,10 +875,18 @@ ipcMain.handle('settings:setDownloadPath', (_, dirPath) => {
   saveConfig(config);
   return { ok: true };
 });
+ipcMain.handle('settings:getOpenAtLogin', () => getOpenAtLogin());
+ipcMain.handle('settings:setOpenAtLogin', (_, enabled) => {
+  setOpenAtLogin(Boolean(enabled));
+  return { ok: true };
+});
 ipcMain.handle('settings:setTheme', (_, theme) => {
   const ok = setTheme(theme);
   if (ok && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('app:theme', theme);
+  }
+  if (ok && prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+    prepareDownloadWindow.webContents.send('app:theme', theme);
   }
   return { ok };
 });
@@ -657,10 +908,10 @@ ipcMain.on('open-settings', () => {
   }
   const iconPath = getAppIcon();
   settingsWindow = new BrowserWindow({
-    width: 620,
-    height: 480,
-    minWidth: 500,
-    minHeight: 400,
+    width: 640,
+    height: 520,
+    minWidth: 520,
+    minHeight: 420,
     frame: false,
     transparent: true,
     titleBarStyle: 'hidden',
@@ -713,11 +964,53 @@ function startUrlReceiver() {
         const data = JSON.parse(body);
         const url = (data.url || '').trim();
         if (!url || !isYouTubeUrl(url)) throw new Error('Invalid YouTube URL');
+        const downloadType = data.downloadType;
+        const isPrepare = downloadType === 'audio' || downloadType === 'video';
+
         currentTabUrl = url;
+        focusMainWindow();
+
+        if (isPrepare) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('new-url', url);
+          }
+          openPrepareDownloadWindow();
+          pushPrepareDownloadPayload({
+            url,
+            downloadType,
+            status: 'loading',
+          });
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end('OK');
+          const ytDlpPath = getYtDlpPath();
+          fetchVideoInfo(ytDlpPath, url).then((info) => {
+            if (
+              !pendingPreparePayload ||
+              pendingPreparePayload.url !== url ||
+              pendingPreparePayload.downloadType !== downloadType ||
+              pendingPreparePayload.status !== 'loading'
+            ) {
+              return;
+            }
+            pushPrepareDownloadPayload({
+              url,
+              downloadType,
+              status: 'ready',
+              title: info.title || 'YouTube video',
+              thumbnail: info.thumbnail,
+              videoId: info.videoId || extractYouTubeVideoId(url),
+              durationLabel: formatDuration(info.duration),
+              sizeLabel: formatFileSize(info.sizeBytes),
+            });
+          });
+          return;
+        }
+
+        pendingPreparePayload = null;
+        if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+          prepareDownloadWindow.close();
+        }
         if (mainWindow && !mainWindow.isDestroyed()) {
-          if (mainWindow.isMinimized()) mainWindow.restore();
-          if (!mainWindow.isVisible()) mainWindow.show();
-          mainWindow.focus();
           mainWindow.webContents.send('new-url', url);
         }
         res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -738,10 +1031,73 @@ function startUrlReceiver() {
   });
 }
 
+function showMainWindowFromTray() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+  createMainWindow();
+}
+
+function createTray() {
+  const iconPath = getAppIcon();
+  if (!iconPath || !fs.existsSync(iconPath)) {
+    console.warn('[Nekoload main] Tray skipped: no app icon');
+    return;
+  }
+  let image = nativeImage.createFromPath(iconPath);
+  if (image.isEmpty()) {
+    console.warn('[Nekoload main] Tray skipped: empty icon');
+    return;
+  }
+  try {
+    const size = image.getSize();
+    if (size.width > 16 || size.height > 16) {
+      image = image.resize({ width: 16, height: 16 });
+    }
+  } catch (_) {}
+  try {
+    tray = new Tray(image);
+  } catch (e) {
+    console.warn('[Nekoload main] Tray failed', e.message);
+    return;
+  }
+  tray.setToolTip('Nekoload');
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Open',
+      click: () => showMainWindowFromTray(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Exit',
+      click: () => {
+        allowMainWindowQuit = true;
+        if (prepareDownloadWindow && !prepareDownloadWindow.isDestroyed()) {
+          prepareDownloadWindow.destroy();
+        }
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+          settingsWindow.destroy();
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.destroy();
+        }
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(menu);
+  tray.on('double-click', () => showMainWindowFromTray());
+}
+
 app.whenReady().then(() => {
   app.setName('Nekoload');
+  applyOpenAtLoginSetting();
   startUrlReceiver();
   createMainWindow();
+  createTray();
 });
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => {});
