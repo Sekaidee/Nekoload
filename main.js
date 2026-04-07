@@ -133,10 +133,21 @@ function setTheme(theme) {
 }
 
 function getToolsPath() {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'tools');
+  const candidates = app.isPackaged
+    ? [
+        path.join(process.resourcesPath, 'tools'),
+        path.join(process.resourcesPath, 'Tools'),
+      ]
+    : [
+        path.join(__dirname, 'tools'),
+        path.join(__dirname, 'Tools'),
+      ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch (_) {}
   }
-  return path.join(__dirname, 'tools');
+  return candidates[0];
 }
 
 function getYtDlpPath() {

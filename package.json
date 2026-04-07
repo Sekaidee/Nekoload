@@ -28,6 +28,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "preload-prepare.js",
       "preload-settings.js",
       "src/**/*",
       "package.json"
