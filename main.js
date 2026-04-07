@@ -63,6 +63,16 @@ function getDownloadPath() {
   return loadConfig().downloadPath;
 }
 
+function ensureMediaFolders(basePath) {
+  if (!basePath || typeof basePath !== 'string') return;
+  try {
+    fs.mkdirSync(path.join(basePath, 'Audios'), { recursive: true });
+    fs.mkdirSync(path.join(basePath, 'Videos'), { recursive: true });
+  } catch (e) {
+    console.warn('[Nekoload main] ensureMediaFolders', e.message);
+  }
+}
+
 function getTheme() {
   return loadConfig().theme;
 }
@@ -255,6 +265,7 @@ ipcMain.handle('app:setEmbedSubtitles', (_, enabled) => {
   setEmbedSubtitles(enabled);
   return { ok: true };
 });
+ipcMain.handle('prepare-window:get-pending', () => pendingPreparePayload);
 
 ipcMain.on('prepare-download-window:close', () => {
   pendingPreparePayload = null;
@@ -577,7 +588,21 @@ ipcMain.handle('download:start', async (_, { url, type, embedSubtitles }) => {
   if (ffmpegPath) args.push('--ffmpeg-location', ffmpegPath.replace(/\\/g, '/'));
 
   if (type === 'audio') {
-    args.push('-f', 'bestaudio*', '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0');
+    // Embed YouTube thumbnail as MP3 cover art.
+    args.push(
+      '-f',
+      'bestaudio*',
+      '--extract-audio',
+      '--audio-format',
+      'mp3',
+      '--audio-quality',
+      '0',
+      '--add-metadata',
+      '--write-thumbnail',
+      '--convert-thumbnails',
+      'jpg',
+      '--embed-thumbnail'
+    );
   } else {
     args.push(
       '-f',
@@ -698,7 +723,7 @@ ipcMain.handle('download:start', async (_, { url, type, embedSubtitles }) => {
           }
         }
         if (!filePath) {
-          const found = findNewestFileInDir(downloadPath, ext);
+          const found = findNewestFileInDir(outDir, ext);
           if (found) {
             filePath = found;
             lastFilename = path.basename(found);
@@ -873,6 +898,7 @@ ipcMain.handle('settings:setDownloadPath', (_, dirPath) => {
   const config = loadConfig();
   config.downloadPath = dirPath;
   saveConfig(config);
+  ensureMediaFolders(dirPath);
   return { ok: true };
 });
 ipcMain.handle('settings:getOpenAtLogin', () => getOpenAtLogin());
@@ -1095,6 +1121,7 @@ function createTray() {
 app.whenReady().then(() => {
   app.setName('Nekoload');
   applyOpenAtLoginSetting();
+  ensureMediaFolders(getDownloadPath());
   startUrlReceiver();
   createMainWindow();
   createTray();

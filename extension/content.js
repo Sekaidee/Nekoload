@@ -1,5 +1,6 @@
 (function () {
   const FLOAT_ID = 'nekoload-yt-float';
+  const STORAGE_KEY = 'nekoloadFloatPosition';
   const FLOAT_GIF_URL =
     'https://ribvfsoauqiriofyrxiq.supabase.co/storage/v1/object/public/sekaide/nekoload-float.gif';
 
@@ -29,6 +30,7 @@
   }
 
   let root = null;
+  let removeFullscreenListener = null;
 
   function fallbackIconUrl() {
     try {
@@ -38,7 +40,64 @@
     }
   }
 
-  function mount() {
+  function readSavedPosition() {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get([STORAGE_KEY], (res) => {
+          if (chrome.runtime.lastError) {
+            resolve(null);
+            return;
+          }
+          const p = res?.[STORAGE_KEY];
+          if (!p || typeof p.left !== 'number' || typeof p.top !== 'number') {
+            resolve(null);
+            return;
+          }
+          resolve(p);
+        });
+      } catch (_) {
+        resolve(null);
+      }
+    });
+  }
+
+  function savePosition(left, top) {
+    try {
+      chrome.storage.local.set({
+        [STORAGE_KEY]: { left: Math.round(left), top: Math.round(top) },
+      });
+    } catch (_) {}
+  }
+
+  function clampToViewport(left, top) {
+    if (!root) return { left, top };
+    const rect = root.getBoundingClientRect();
+    const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+    const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+    return {
+      left: Math.min(Math.max(8, left), maxLeft),
+      top: Math.min(Math.max(8, top), maxTop),
+    };
+  }
+
+  function applyPosition(left, top) {
+    if (!root) return;
+    const p = clampToViewport(left, top);
+    root.style.left = `${p.left}px`;
+    root.style.top = `${p.top}px`;
+    root.style.right = 'auto';
+  }
+
+  function isFullscreenNow() {
+    return Boolean(document.fullscreenElement);
+  }
+
+  function setFullscreenHidden(hidden) {
+    if (!root) return;
+    root.classList.toggle('is-fullscreen-hidden', Boolean(hidden));
+  }
+
+  async function mount() {
     if (root || !isVideoPage()) return;
     root = document.createElement('div');
     root.id = FLOAT_ID;
@@ -54,10 +113,19 @@
       </div>
     `;
     document.documentElement.appendChild(root);
+    const defaultLeft = window.innerWidth - 16 - 56;
+    applyPosition(defaultLeft, 72);
+    const saved = await readSavedPosition();
+    if (saved && root) applyPosition(saved.left, saved.top);
 
     const inner = root.querySelector('.nekoload-float-inner');
     const gifBtn = root.querySelector('.nekoload-float-gif');
     const img = root.querySelector('.nekoload-float-gif img');
+    if (img) {
+      img.setAttribute('draggable', 'false');
+      img.addEventListener('dragstart', (e) => e.preventDefault());
+      img.addEventListener('mousedown', (e) => e.preventDefault());
+    }
     if (img) {
       img.src = FLOAT_GIF_URL;
       img.onerror = () => {
@@ -74,8 +142,59 @@
       };
     }
 
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let isDragging = false;
+    let suppressNextClick = false;
+
+    gifBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const rect = root.getBoundingClientRect();
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      isDragging = false;
+      gifBtn.setPointerCapture?.(e.pointerId);
+    });
+
+    gifBtn.addEventListener('pointermove', (e) => {
+      if ((e.buttons & 1) !== 1) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      if (!isDragging && Math.hypot(dx, dy) > 6) {
+        isDragging = true;
+        root.classList.add('is-dragging');
+        inner.classList.remove('is-expanded');
+        gifBtn.setAttribute('aria-expanded', 'false');
+      }
+      if (!isDragging) return;
+      applyPosition(startLeft + dx, startTop + dy);
+    });
+
+    function endDrag() {
+      if (!root) return;
+      if (isDragging) {
+        isDragging = false;
+        suppressNextClick = true;
+        root.classList.remove('is-dragging');
+        const rect = root.getBoundingClientRect();
+        savePosition(rect.left, rect.top);
+        setTimeout(() => {
+          suppressNextClick = false;
+        }, 120);
+      }
+    }
+
+    gifBtn.addEventListener('pointerup', endDrag);
+    gifBtn.addEventListener('pointercancel', endDrag);
+
     gifBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (suppressNextClick) return;
       inner.classList.toggle('is-expanded');
       gifBtn.setAttribute('aria-expanded', inner.classList.contains('is-expanded') ? 'true' : 'false');
     });
@@ -101,6 +220,10 @@
     });
 
     document.addEventListener('click', onDocClick, true);
+    const onFullscreen = () => setFullscreenHidden(isFullscreenNow());
+    document.addEventListener('fullscreenchange', onFullscreen, true);
+    removeFullscreenListener = () => document.removeEventListener('fullscreenchange', onFullscreen, true);
+    setFullscreenHidden(isFullscreenNow());
   }
 
   function onDocClick(e) {
@@ -114,6 +237,10 @@
   function unmount() {
     if (!root) return;
     document.removeEventListener('click', onDocClick, true);
+    if (removeFullscreenListener) {
+      removeFullscreenListener();
+      removeFullscreenListener = null;
+    }
     root.remove();
     root = null;
   }

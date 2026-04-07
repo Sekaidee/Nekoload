@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('nekoloadPrepare', {
   onPrepareUpdate: (cb) => {
     ipcRenderer.on('prepare-window:update', (_, payload) => cb(payload));
   },
+  getPendingPrepare: () => ipcRenderer.invoke('prepare-window:get-pending'),
   getEmbedSubtitles: () => ipcRenderer.invoke('app:getEmbedSubtitles'),
   setEmbedSubtitles: (enabled) => ipcRenderer.invoke('app:setEmbedSubtitles', enabled),
   startDownload: (url, type, embedSubtitles) =>

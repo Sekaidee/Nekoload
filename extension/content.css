@@ -5,6 +5,7 @@
   z-index: 99999;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 #nekoload-yt-float * {
@@ -16,6 +17,21 @@
   flex-direction: column;
   align-items: flex-end;
   animation: nekoload-float-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+#nekoload-yt-float.is-dragging {
+  opacity: 0.94;
+}
+
+#nekoload-yt-float.is-dragging .nekoload-float-gif {
+  cursor: grabbing;
+  transform: scale(1.03);
+}
+
+#nekoload-yt-float.is-fullscreen-hidden {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+  pointer-events: none;
 }
 
 @keyframes nekoload-float-in {
@@ -97,12 +113,15 @@
   border: none;
   background: transparent;
   box-shadow: none;
-  cursor: pointer;
+  cursor: grab;
   overflow: visible;
   border-radius: 0;
   outline: none;
   transition: transform 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .nekoload-float-gif:hover {
@@ -128,4 +147,6 @@
   border-radius: 0;
   box-shadow: none;
   border: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }

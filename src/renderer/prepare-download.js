@@ -109,23 +109,42 @@
     }
   }
 
-  api.getTheme().then(applyTheme).catch(() => {});
-  api.getBackgroundOpacity().then(applyOpacity).catch(() => {});
-  api.getEmbedSubtitles().then((on) => {
-    if (embedChk) embedChk.checked = Boolean(on);
+  if (typeof api.getTheme === 'function') {
+    api.getTheme().then(applyTheme).catch(() => {});
+  }
+  if (typeof api.getBackgroundOpacity === 'function') {
+    api.getBackgroundOpacity().then(applyOpacity).catch(() => {});
+  }
+  if (typeof api.getEmbedSubtitles === 'function') {
+    api.getEmbedSubtitles().then((on) => {
+      if (embedChk) embedChk.checked = Boolean(on);
+      syncEmbedSwitchClass();
+    }).catch(() => {});
+  } else {
     syncEmbedSwitchClass();
-  }).catch(() => {});
+  }
 
-  if (embedChk) {
+  if (embedChk && typeof api.setEmbedSubtitles === 'function') {
     embedChk.addEventListener('change', () => {
       syncEmbedSwitchClass();
       api.setEmbedSubtitles(embedChk.checked).catch(() => {});
     });
   }
 
-  api.onThemeChanged(applyTheme);
-  api.onBackgroundOpacityChanged(applyOpacity);
-  api.onPrepareUpdate(applyPayload);
+  if (typeof api.onThemeChanged === 'function') {
+    api.onThemeChanged(applyTheme);
+  }
+  if (typeof api.onBackgroundOpacityChanged === 'function') {
+    api.onBackgroundOpacityChanged(applyOpacity);
+  }
+  if (typeof api.onPrepareUpdate === 'function') {
+    api.onPrepareUpdate(applyPayload);
+  }
+  if (typeof api.getPendingPrepare === 'function') {
+    api.getPendingPrepare().then((payload) => {
+      if (payload && payload.url) applyPayload(payload);
+    }).catch(() => {});
+  }
 
   btnCancel.addEventListener('click', () => closeWithAnimation());
   btnClose.addEventListener('click', () => closeWithAnimation());
@@ -135,6 +154,10 @@
     if (!url || (type !== 'audio' && type !== 'video')) return;
     btnDownload.disabled = true;
     const subs = type === 'video' && embedChk && embedChk.checked;
+    if (typeof api.startDownload !== 'function') {
+      btnDownload.disabled = false;
+      return;
+    }
     api.startDownload(url, type, subs).catch((e) => {
       console.error(e);
       btnDownload.disabled = false;
